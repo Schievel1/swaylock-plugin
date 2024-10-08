@@ -142,7 +142,17 @@ static void wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
 
 static void wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 		uint32_t time, wl_fixed_t surface_x, wl_fixed_t surface_y) {
-	swaylock_handle_mouse((struct swaylock_state *)data);
+		static int last_x = 0;
+		static int last_y = 0;
+		int x = wl_fixed_to_int(surface_x);
+		int y = wl_fixed_to_int(surface_y);
+
+		if (last_x > 0 && (x - last_x > 1 || y - last_y > 1)) {
+		swaylock_handle_mouse((struct swaylock_state *)data);
+		}
+
+		last_x = x;
+		last_y = y;
 }
 
 static void wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
