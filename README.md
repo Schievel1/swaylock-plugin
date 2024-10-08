@@ -26,6 +26,18 @@ is replaced by your desired program. Examples:
     timeout $delay swaybg -i $1/$file
     ```
 
+*  `--grace <seconds>` to set a password grace period, so that the password
+  isn't required to unlock until some number of seconds have passed.
+    * Used together with `--indicator`, the indicator is always shown,
+      even in the grace period.
+    * Used together with `--indicator-idle-visible`, the indicator is only
+      visible after the grace period.
+    * By default, either a key press or a mouse event will unlock
+      during the grace period. Use `--grace-no-mouse` to only unlock
+      as a response to a key event.
+* `--grace-no-mouse*` With *--grace*, only unlock as a response to a
+    key event, not in response to a mouse event.
+
 ` swaylock-plugin` requires that the Wayland compositor implement the `ext-session-lock-v1` protocol.
 
 This is experimental software, so if something fails to work it's probably a bug

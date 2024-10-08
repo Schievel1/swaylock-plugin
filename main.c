@@ -54,6 +54,26 @@ static void cleanup_client(struct swaylock_bg_client *bg_client);
 
 extern char **environ;
 
+static uint32_t parse_seconds(const char *seconds) {
+char *endptr;
+errno = 0;
+float val = strtof(seconds, &endptr);
+if (errno != 0) {
+swaylock_log(LOG_DEBUG, "Invalid number for seconds %s, defaulting to 0", seconds);
+return 0;
+}
+if (endptr == seconds) {
+swaylock_log(LOG_DEBUG, "No digits were found in %s, defaulting to 0", seconds);
+return 0;
+}
+if (val < 0) {
+swaylock_log(LOG_DEBUG, "Negative seconds nor allowed for %s, defaulting to 0", seconds);
+return 0;
+}
+
+return (uint32_t)floor(val * 1000);
+}
+
 static uint32_t parse_color(const char *color) {
 	if (color[0] == '#') {
 		++color;
@@ -856,6 +876,8 @@ static int parse_options(int argc, char **argv, struct swaylock_state *state,
 		LO_TEXT_WRONG_COLOR,
 		LO_PLUGIN_COMMAND,
 		LO_PLUGIN_COMMAND_EACH,
+		LO_GRACE,
+		LO_GRACE_NO_MOUSE,
 	};
 
 	static struct option long_options[] = {
@@ -915,6 +937,8 @@ static int parse_options(int argc, char **argv, struct swaylock_state *state,
 		{"text-wrong-color", required_argument, NULL, LO_TEXT_WRONG_COLOR},
 		{"command", required_argument, NULL, LO_PLUGIN_COMMAND},
 		{"command-each", required_argument, NULL, LO_PLUGIN_COMMAND_EACH},
+		{"grace", required_argument, NULL, LO_GRACE},
+		{"grace-no-mouse", no_argument, NULL, LO_GRACE_NO_MOUSE},
 		{0, 0, 0, 0}
 	};
 
@@ -1336,6 +1360,16 @@ static int parse_options(int argc, char **argv, struct swaylock_state *state,
 				state->args.plugin_per_output = true;
 			}
 			break;
+			case LO_GRACE:
+			if (state) {
+			state->args.password_grace_period = parse_seconds(optarg);
+			}
+			break;
+			case LO_GRACE_NO_MOUSE:
+			if (state) {
+			state->args.password_grace_no_mouse = true;
+			}
+			break;
 		default:
 			fprintf(stderr, "%s", usage);
 			return 1;
@@ -1428,6 +1462,12 @@ static void display_in(int fd, short mask, void *data) {
 		state.run_display = false;
 	}
 }
+
+static void require_authentication(void *data) {
+struct swaylock_state *state = data;
+state->auth_state = AUTH_STATE_INVALID;
+}
+
 
 static void comm_in(int fd, short mask, void *data) {
 	if (read_comm_reply()) {
@@ -2145,6 +2185,7 @@ int main(int argc, char **argv) {
 		.hide_keyboard_layout = false,
 		.show_failed_attempts = false,
 		.indicator_idle_visible = false,
+		.password_grace_period = 0,
 		.ready_fd = -1,
 		.plugin_command = NULL,
 	};
@@ -2184,6 +2225,10 @@ int main(int argc, char **argv) {
 		state.args.colors.line = state.args.colors.inside;
 	} else if (line_mode == LM_RING) {
 		state.args.colors.line = state.args.colors.ring;
+	}
+
+	if (state.args.password_grace_period > 0) {
+	state.auth_state = AUTH_STATE_GRACE;
 	}
 
 	state.password.len = 0;
@@ -2404,6 +2449,13 @@ int main(int argc, char **argv) {
 
 	loop_add_fd(state.eventloop, wl_display_get_fd(state.display), POLLIN,
 			display_in, NULL);
+
+if (state.args.password_grace_period > 0) {
+loop_add_timer(state.eventloop,
+state.args.password_grace_period,
+require_authentication,
+&state);
+}
 
 	loop_add_fd(state.eventloop, get_comm_reply_fd(), POLLIN, comm_in, NULL);
 
