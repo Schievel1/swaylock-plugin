@@ -18,6 +18,7 @@ enum auth_state {
 	AUTH_STATE_IDLE, // nothing happening
 	AUTH_STATE_VALIDATING, // currently validating password
 	AUTH_STATE_INVALID, // displaying message: password was wrong
+	AUTH_STATE_GRACE, // state where the screen can be unlocked without password
 };
 
 // Indicator state: status of password buffer / typing letters
@@ -74,6 +75,8 @@ struct swaylock_args {
 	bool daemonize;
 	int ready_fd;
 	bool indicator_idle_visible;
+	uint32_t password_grace_period;
+	bool password_grace_no_mouse;
 	char *plugin_command;
 	bool plugin_per_output;
 };
@@ -408,6 +411,7 @@ struct swaylock_image {
 
 void swaylock_handle_key(struct swaylock_state *state,
 		xkb_keysym_t keysym, uint32_t codepoint);
+void swaylock_handle_mouse(struct swaylock_state *state);
 
 void render(struct swaylock_surface *surface);
 void damage_state(struct swaylock_state *state);
